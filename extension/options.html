@@ -29,9 +29,18 @@
     button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
     button.danger { color: #dc2626; }
     .bar { display: flex; gap: 10px; align-items: center; margin: 24px 0 8px; flex-wrap: wrap; }
-    #status { opacity: 0; transition: opacity 0.2s; font-weight: 500; }
-    #status.show { opacity: 1; }
     #pauseState { font-weight: 600; }
+    button:active { transform: translateY(1px); }
+    #toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: #16a34a; color: #fff; padding: 10px 18px; border-radius: 8px;
+      box-shadow: 0 6px 20px #0006; font-weight: 500; max-width: 80vw;
+      opacity: 0; pointer-events: none; z-index: 1000;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.warn { background: #d97706; }
   </style>
 </head>
 <body>
@@ -54,8 +63,9 @@
   <div class="bar">
     <button id="save" class="primary" type="button">Save all</button>
     <button id="reset" class="danger" type="button">Reset to defaults</button>
-    <span id="status"></span>
   </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="options.js"></script>
 </body>

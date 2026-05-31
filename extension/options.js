@@ -101,7 +101,7 @@ async function productTabs(id) {
 async function saveProductCard(card) {
   const id = cardId(card);
   if (!id) {
-    flash('Set a product id first.');
+    flash('Set a product id first.', 'warn');
     return;
   }
   const prod = readCard(card);
@@ -119,7 +119,7 @@ async function refreshProductTabs(card) {
   const id = cardId(card);
   const tabs = await productTabs(id);
   if (!tabs.length) {
-    flash(`No open tab for ${id || 'this product'}.`);
+    flash(`No open tab for ${id || 'this product'}.`, 'warn');
     return;
   }
   await Promise.all(tabs.map((t) => chrome.tabs.reload(t.id)));
@@ -130,7 +130,7 @@ async function focusProductTab(card) {
   const id = cardId(card);
   const [tab] = await productTabs(id);
   if (!tab) {
-    flash(`No open tab for ${id || 'this product'}.`);
+    flash(`No open tab for ${id || 'this product'}.`, 'warn');
     return;
   }
   await chrome.tabs.update(tab.id, { active: true });
@@ -343,11 +343,18 @@ function renderPause() {
   document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
 }
 
-function flash(msg) {
-  const el = document.getElementById('status');
+// Floating toast feedback. variant 'success' (green) or 'warn' (amber).
+let toastTimer = null;
+function flash(msg, variant = 'success') {
+  const el = document.getElementById('toast');
   el.textContent = msg;
+  el.classList.remove('warn');
+  if (variant === 'warn') {
+    el.classList.add('warn');
+  }
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1800);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
 async function load() {
