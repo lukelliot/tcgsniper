@@ -17,8 +17,11 @@
     .row .hint { grid-column: 2; font-size: 12px; opacity: 0.65; margin-top: -2px; }
     input[type="text"], input[type="number"] { padding: 5px 7px; border: 1px solid #8886; border-radius: 5px; background: transparent; color: inherit; width: 100%; box-sizing: border-box; }
     input[type="checkbox"] { width: 16px; height: 16px; }
-    .product { border: 1px solid #8884; border-radius: 8px; padding: 14px 16px; margin: 12px 0; position: relative; }
-    .product .remove { position: absolute; top: 10px; right: 12px; }
+    .product { border: 1px solid #8884; border-radius: 8px; margin: 12px 0; overflow: hidden; }
+    .product .fields { padding: 14px 16px; }
+    .tile-bar { display: flex; gap: 8px; padding: 9px 14px; flex-wrap: wrap; align-items: center; }
+    .tile-bar.top { border-bottom: 1px solid #8884; background: #8881; }
+    .tile-bar.bottom { border-top: 1px solid #8884; justify-content: flex-end; }
     button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #8886; background: #8881; color: inherit; cursor: pointer; }
     button:hover { background: #8883; }
     button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
@@ -47,7 +50,7 @@
   <div id="config"></div>
 
   <div class="bar">
-    <button id="save" class="primary" type="button">Save</button>
+    <button id="save" class="primary" type="button">Save all</button>
     <button id="reset" class="danger" type="button">Reset to defaults</button>
     <span id="status"></span>
   </div>
