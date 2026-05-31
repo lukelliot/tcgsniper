@@ -144,3 +144,5 @@ vite.config.ts.timestamp-*
 
 # Misc
 .DS_Store
+.claude/
+.history/
