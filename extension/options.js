@@ -44,22 +44,159 @@ function effectiveProducts(po) {
 
 // --- product cards -----------------------------------------------------------
 
+const cardId = (card) => card.querySelector('.pid').value.trim();
+
+// Read one card's fields into a product object.
+function readCard(card) {
+  const prod = {};
+  PRODUCT_FIELDS.forEach((f) => {
+    const raw = card.querySelector(`[data-field="${f.key}"]`).value.trim();
+    if (f.type === 'list') {
+      prod[f.key] = parseList(raw);
+    } else if (f.type === 'number') {
+      prod[f.key] = raw === '' ? null : Number(raw);
+    } else {
+      prod[f.key] = raw;
+    }
+  });
+  return prod;
+}
+
+function readProductCards() {
+  const out = {};
+  document.querySelectorAll('#products .product').forEach((card) => {
+    const id = cardId(card);
+    if (id) {
+      out[id] = readCard(card);
+    }
+  });
+  return out;
+}
+
+// Per-tile actions. Each handler takes the card element and reads the id at
+// click time (a new product's id is editable). Add buttons here to extend the
+// bars — the top bar is for product actions, the bottom bar for destructive ones.
+const PRODUCT_ACTIONS = [
+  { label: 'Save', primary: true, handler: saveProductCard },
+  { label: 'Refresh', handler: refreshProductTabs },
+  { label: 'Focus tab', handler: focusProductTab },
+];
+const PRODUCT_DESTRUCTIVE = [
+  { label: 'Remove', danger: true, handler: removeProductCard },
+];
+
+// Find the open tab(s) for a product id. The id boundary guards against one id
+// being a prefix of another (e.g. 693209 vs 6932090).
+async function productTabs(id) {
+  if (!id) {
+    return [];
+  }
+  const tabs = await chrome.tabs.query({ url: 'https://www.tcgplayer.com/product/*' });
+  const re = new RegExp(`/product/${id}(?:\\D|$)`);
+  return tabs.filter((t) => re.test(t.url || ''));
+}
+
+// Save just this product into productsOverride (mirrors setProduct): drop the
+// override when it equals the file default, otherwise store the whole object.
+async function saveProductCard(card) {
+  const id = cardId(card);
+  if (!id) {
+    flash('Set a product id first.', 'warn');
+    return;
+  }
+  const prod = readCard(card);
+  const po = await get(KEY.PRODUCTS_OVERRIDE, {});
+  if (DEFAULT_PRODUCTS[id] && eq(prod, DEFAULT_PRODUCTS[id])) {
+    delete po[id];
+  } else {
+    po[id] = prod;
+  }
+  await set({ [KEY.PRODUCTS_OVERRIDE]: po });
+  flash(`Saved ${id} — applies on the next poll.`);
+}
+
+async function refreshProductTabs(card) {
+  const id = cardId(card);
+  const tabs = await productTabs(id);
+  if (!tabs.length) {
+    flash(`No open tab for ${id || 'this product'}.`, 'warn');
+    return;
+  }
+  await Promise.all(tabs.map((t) => chrome.tabs.reload(t.id)));
+  flash(`Refreshed ${tabs.length} tab${tabs.length > 1 ? 's' : ''} for ${id}.`);
+}
+
+async function focusProductTab(card) {
+  const id = cardId(card);
+  const [tab] = await productTabs(id);
+  if (!tab) {
+    flash(`No open tab for ${id || 'this product'}.`, 'warn');
+    return;
+  }
+  await chrome.tabs.update(tab.id, { active: true });
+  if (tab.windowId != null) {
+    await chrome.windows.update(tab.windowId, { focused: true });
+  }
+}
+
+// Stop watching: a default id becomes a null tombstone; anything else just
+// drops its override. Brand-new unsaved cards (no id yet) only leave the DOM.
+async function removeProductCard(card) {
+  const id = cardId(card);
+  if (id) {
+    const po = await get(KEY.PRODUCTS_OVERRIDE, {});
+    if (DEFAULT_PRODUCTS[id]) {
+      po[id] = null;
+    } else {
+      delete po[id];
+    }
+    await set({ [KEY.PRODUCTS_OVERRIDE]: po });
+  }
+  card.remove();
+  flash(id ? `Removed ${id}.` : 'Removed.');
+}
+
+function actionBar(card, actions, cls) {
+  const bar = document.createElement('div');
+  bar.className = `tile-bar ${cls}`;
+  for (const a of actions) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = a.label;
+    if (a.primary) {
+      b.classList.add('primary');
+    }
+    if (a.danger) {
+      b.classList.add('danger');
+    }
+    b.onclick = () => a.handler(card);
+    bar.appendChild(b);
+  }
+  return bar;
+}
+
 function productCard(id, prod) {
   const card = document.createElement('div');
   card.className = 'product';
-  card.dataset.defaultId = DEFAULT_PRODUCTS[id] ? '1' : '';
+
+  card.appendChild(actionBar(card, PRODUCT_ACTIONS, 'top'));
+
+  const fields = document.createElement('div');
+  fields.className = 'fields';
 
   const idRow = document.createElement('div');
   idRow.className = 'row';
-  idRow.innerHTML = '<label>Product id</label>';
+  const idLab = document.createElement('label');
+  idLab.textContent = 'Product id';
   const idInput = document.createElement('input');
   idInput.type = 'text';
   idInput.value = id || '';
   idInput.className = 'pid';
   idInput.placeholder = 'e.g. 693209';
   idInput.disabled = !!DEFAULT_PRODUCTS[id]; // don't let a default id be renamed
+  idRow.appendChild(idLab);
   idRow.appendChild(idInput);
-  card.appendChild(idRow);
+  fields.appendChild(idRow);
 
   for (const f of PRODUCT_FIELDS) {
     const row = document.createElement('div');
@@ -79,41 +216,12 @@ function productCard(id, prod) {
       hint.textContent = f.hint;
       row.appendChild(hint);
     }
-    card.appendChild(row);
+    fields.appendChild(row);
   }
 
-  const rm = document.createElement('button');
-  rm.type = 'button';
-  rm.className = 'remove danger';
-  rm.textContent = 'Remove';
-  rm.onclick = () => card.remove();
-  card.appendChild(rm);
-
+  card.appendChild(fields);
+  card.appendChild(actionBar(card, PRODUCT_DESTRUCTIVE, 'bottom'));
   return card;
-}
-
-function readProductCards() {
-  const out = {};
-  document.querySelectorAll('#products .product').forEach((card) => {
-    const id = card.querySelector('.pid').value.trim();
-    if (!id) {
-      return;
-    }
-    const prod = {};
-    PRODUCT_FIELDS.forEach((f) => {
-      const input = card.querySelector(`[data-field="${f.key}"]`);
-      const raw = input.value.trim();
-      if (f.type === 'list') {
-        prod[f.key] = parseList(raw);
-      } else if (f.type === 'number') {
-        prod[f.key] = raw === '' ? null : Number(raw);
-      } else {
-        prod[f.key] = raw;
-      }
-    });
-    out[id] = prod;
-  });
-  return out;
 }
 
 // Turn the edited effective products back into the minimal override object,
@@ -137,11 +245,27 @@ function productsToOverride(effective) {
 
 // --- global config form ------------------------------------------------------
 
+// camelCase -> "Camel Case" (e.g. basePeriodMin -> "Base Period Min").
+const humanize = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()).trim();
+
+// Functional grouping for the settings form. Keys not listed here fall into an
+// "Other" group automatically, so a new knob in config.js still shows up.
+const CONFIG_GROUPS = [
+  { title: 'Polling', keys: ['basePeriodMin', 'maxPeriodMin'] },
+  { title: 'Adaptive backoff', keys: ['backoffAfterEmpties', 'backoffGrowth', 'relaxAfterClean', 'relaxFactor'] },
+  { title: 'Re-alerts', keys: ['reAlertMinHours', 'reAlertMaxHours'] },
+  { title: 'Trend & history', keys: ['trendDropPct', 'trendRiseReset', 'stallHours', 'trendWindowsDays', 'historyMinIntervalMinutes'] },
+  { title: 'Steals', keys: ['stealFactor', 'stealMinListings', 'stealVelocityWindowHours', 'stealVelocityThreshold', 'stealVelocityBoost'] },
+  { title: 'Selector health', keys: ['healthAlertAfter'] },
+  { title: 'Notifications', keys: ['dailySnapshotHour', 'useDesktop', 'useNtfy', 'ntfyTopic'] },
+  { title: 'Tabs & block recovery', keys: ['reopenIfClosed', 'flaggedBackoffMin', 'flaggedMaxBackoffMin'] },
+];
+
 function configRow(key, def, current) {
   const row = document.createElement('div');
   row.className = 'row';
   const lab = document.createElement('label');
-  lab.textContent = key;
+  lab.textContent = humanize(key);
   lab.htmlFor = `cfg_${key}`;
   row.appendChild(lab);
 
@@ -219,11 +343,18 @@ function renderPause() {
   document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
 }
 
-function flash(msg) {
-  const el = document.getElementById('status');
+// Floating toast feedback. variant 'success' (green) or 'warn' (amber).
+let toastTimer = null;
+function flash(msg, variant = 'success') {
+  const el = document.getElementById('toast');
   el.textContent = msg;
+  el.classList.remove('warn');
+  if (variant === 'warn') {
+    el.classList.add('warn');
+  }
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1800);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
 async function load() {
@@ -240,9 +371,24 @@ async function load() {
 
   const configEl = document.getElementById('config');
   configEl.innerHTML = '';
-  for (const [key, def] of Object.entries(DEFAULT_CONFIG)) {
-    const current = key in co ? co[key] : def;
-    configEl.appendChild(configRow(key, def, current));
+  const grouped = new Set(CONFIG_GROUPS.flatMap((g) => g.keys));
+  const other = Object.keys(DEFAULT_CONFIG).filter((k) => !grouped.has(k));
+  const groups = other.length ? [...CONFIG_GROUPS, { title: 'Other', keys: other }] : CONFIG_GROUPS;
+
+  for (const group of groups) {
+    const keys = group.keys.filter((k) => k in DEFAULT_CONFIG);
+    if (!keys.length) {
+      continue;
+    }
+    const heading = document.createElement('div');
+    heading.className = 'group-title';
+    heading.textContent = group.title;
+    configEl.appendChild(heading);
+    for (const key of keys) {
+      const def = DEFAULT_CONFIG[key];
+      const current = key in co ? co[key] : def;
+      configEl.appendChild(configRow(key, def, current));
+    }
   }
 
   renderPause();
