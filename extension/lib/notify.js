@@ -3,7 +3,7 @@
 
 import { getConfig } from './storage.js';
 import { URLS, NTFY_TAGS, NOTIFICATION_PRIORITY } from './constants.js';
-import { log } from './log.js';
+import { log, warn } from './log.js';
 
 export function notify(title, message, url) {
   const cfg = getConfig();
@@ -19,15 +19,21 @@ export function notify(title, message, url) {
   }
 
   if (cfg.useNtfy && cfg.ntfyTopic) {
-    fetch(URLS.NTFY_BASE + cfg.ntfyTopic, {
+    // Use ntfy's JSON publishing (POST the topic in the body to the root URL)
+    // rather than per-topic Title/Click headers: HTTP header values must be
+    // ASCII, but our titles contain non-ASCII (e.g. "≤"), which makes the
+    // header-based request reject. JSON carries UTF-8 cleanly. Surface failures
+    // instead of swallowing them, so a broken push doesn't fail silently.
+    fetch(URLS.NTFY_BASE, {
       method: 'POST',
-      headers: {
-        Title: title,
-        Click: url || '',
-        Tags: NTFY_TAGS,
-      },
-      body: message,
-    }).catch(() => {});
+      body: JSON.stringify({
+        topic: cfg.ntfyTopic,
+        title,
+        message,
+        tags: [NTFY_TAGS],
+        click: url || undefined,
+      }),
+    }).catch((e) => warn('ntfy push failed:', e));
   }
 
   log(title, '—', message.replace(/\n/g, ' | '));
