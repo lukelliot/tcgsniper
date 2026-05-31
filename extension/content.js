@@ -1,8 +1,33 @@
 // content.js — runs in each TCGplayer product page. Its ONLY job is to scrape
 // the rendered DOM and report to the service worker. It schedules nothing;
-// the worker's alarm drives the cadence. (Same parsing as the userscript.)
+// the worker's alarm drives the cadence. Kept as a single standalone file
+// because content scripts can't cleanly import ES modules.
 
 (function () {
+  // DOM contract with TCGplayer. If their markup changes, update these.
+  const SELECTORS = {
+    listingItem: '.listing-item',
+    listingPrice: '.listing-item__listing-data__info__price',
+    sellerName: '.seller-info__name',
+    upperPrice: '.price-points__upper__price',
+    salesPrice: '.sales-data__price',
+    chartsChange: '.charts-change',
+    lowerLabel: '.price-points__lower .text',
+    lowerValue: '.price-points__lower .price-points__lower__price',
+  };
+
+  // Lower-panel row labels (lowercased, trailing colon stripped).
+  const LABEL = {
+    listedMedian: 'listed median',
+    currentQuantity: 'current quantity',
+    currentSellers: 'current sellers',
+  };
+
+  const TIMEOUT = {
+    listingsMs: 20000,
+    marketMs: 15000,
+  };
+
   // Pull the first dollar amount out of a string, or null if none.
   const money = (s) => {
     if (!s) {
@@ -15,8 +40,8 @@
   function readListings() {
     const out = [];
 
-    document.querySelectorAll('.listing-item').forEach((li) => {
-      const priceEl = li.querySelector('.listing-item__listing-data__info__price');
+    document.querySelectorAll(SELECTORS.listingItem).forEach((li) => {
+      const priceEl = li.querySelector(SELECTORS.listingPrice);
       if (!priceEl) {
         return;
       }
@@ -38,7 +63,7 @@
         }
       }
 
-      const sellerEl = li.querySelector('.seller-info__name');
+      const sellerEl = li.querySelector(SELECTORS.sellerName);
       out.push({
         item,
         shipping,
@@ -67,16 +92,16 @@
       return n != null && n > 0 ? n : null;
     };
 
-    const upper = document.querySelectorAll('.price-points__upper__price');
-    const sales = document.querySelectorAll('.sales-data__price');
-    const change = document.querySelector('.charts-change');
+    const upper = document.querySelectorAll(SELECTORS.upperPrice);
+    const sales = document.querySelectorAll(SELECTORS.salesPrice);
+    const change = document.querySelector(SELECTORS.chartsChange);
 
     // Lower panel: pair each label (.text) with its value, by document order,
     // into a label-keyed map — more robust than a bare positional index.
     // Labels: "Listed Median:", "Current Quantity:", "Current Sellers:".
     const lower = {};
-    const labels = document.querySelectorAll('.price-points__lower .text');
-    const values = document.querySelectorAll('.price-points__lower .price-points__lower__price');
+    const labels = document.querySelectorAll(SELECTORS.lowerLabel);
+    const values = document.querySelectorAll(SELECTORS.lowerValue);
     labels.forEach((lab, i) => {
       const key = (lab.textContent || '').trim().replace(/:$/, '').toLowerCase();
       if (key && values[i]) {
@@ -89,13 +114,13 @@
       recentSale: num(upper[1]),
       lowSale3mo: num(sales[0]),
       chartChange: change ? change.textContent.trim().replace(/[()]/g, '') : null,
-      listedMedian: money(lower['listed median']),
-      quantity: posInt(lower['current quantity']),
-      sellers: posInt(lower['current sellers']),
+      listedMedian: money(lower[LABEL.listedMedian]),
+      quantity: posInt(lower[LABEL.currentQuantity]),
+      sellers: posInt(lower[LABEL.currentSellers]),
     };
   }
 
-  function waitForListings(timeoutMs = 20000) {
+  function waitForListings(timeoutMs = TIMEOUT.listingsMs) {
     return new Promise((resolve) => {
       if (readListings().length) {
         resolve(readListings());
@@ -123,9 +148,9 @@
 
   // The price-points panel (Market Price etc.) renders separately from listings,
   // usually a beat later. Resolve once it has a real value, or on timeout.
-  function waitForMarket(timeoutMs = 15000) {
+  function waitForMarket(timeoutMs = TIMEOUT.marketMs) {
     const ready = () => {
-      const el = document.querySelector('.price-points__upper__price');
+      const el = document.querySelector(SELECTORS.upperPrice);
       return el && /\d/.test(el.textContent);
     };
     return new Promise((resolve) => {
