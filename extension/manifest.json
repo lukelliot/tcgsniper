@@ -5,7 +5,7 @@
   "description": "Watches the cheapest buyable listing + price trend on chosen TCGplayer products and notifies on threshold/steal/trend events.",
   "permissions": ["alarms", "notifications", "storage", "tabs", "power"],
   "host_permissions": ["https://www.tcgplayer.com/*", "https://ntfy.sh/*"],
-  "background": { "service_worker": "background.js" },
+  "background": { "service_worker": "background.js", "type": "module" },
   "content_scripts": [
     {
       "matches": ["https://www.tcgplayer.com/product/*"],
