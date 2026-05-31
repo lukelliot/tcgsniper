@@ -245,11 +245,27 @@ function productsToOverride(effective) {
 
 // --- global config form ------------------------------------------------------
 
+// camelCase -> "Camel Case" (e.g. basePeriodMin -> "Base Period Min").
+const humanize = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()).trim();
+
+// Functional grouping for the settings form. Keys not listed here fall into an
+// "Other" group automatically, so a new knob in config.js still shows up.
+const CONFIG_GROUPS = [
+  { title: 'Polling', keys: ['basePeriodMin', 'maxPeriodMin'] },
+  { title: 'Adaptive backoff', keys: ['backoffAfterEmpties', 'backoffGrowth', 'relaxAfterClean', 'relaxFactor'] },
+  { title: 'Re-alerts', keys: ['reAlertMinHours', 'reAlertMaxHours'] },
+  { title: 'Trend & history', keys: ['trendDropPct', 'trendRiseReset', 'stallHours', 'trendWindowsDays', 'historyMinIntervalMinutes'] },
+  { title: 'Steals', keys: ['stealFactor', 'stealMinListings', 'stealVelocityWindowHours', 'stealVelocityThreshold', 'stealVelocityBoost'] },
+  { title: 'Selector health', keys: ['healthAlertAfter'] },
+  { title: 'Notifications', keys: ['dailySnapshotHour', 'useDesktop', 'useNtfy', 'ntfyTopic'] },
+  { title: 'Tabs & block recovery', keys: ['reopenIfClosed', 'flaggedBackoffMin', 'flaggedMaxBackoffMin'] },
+];
+
 function configRow(key, def, current) {
   const row = document.createElement('div');
   row.className = 'row';
   const lab = document.createElement('label');
-  lab.textContent = key;
+  lab.textContent = humanize(key);
   lab.htmlFor = `cfg_${key}`;
   row.appendChild(lab);
 
@@ -348,9 +364,24 @@ async function load() {
 
   const configEl = document.getElementById('config');
   configEl.innerHTML = '';
-  for (const [key, def] of Object.entries(DEFAULT_CONFIG)) {
-    const current = key in co ? co[key] : def;
-    configEl.appendChild(configRow(key, def, current));
+  const grouped = new Set(CONFIG_GROUPS.flatMap((g) => g.keys));
+  const other = Object.keys(DEFAULT_CONFIG).filter((k) => !grouped.has(k));
+  const groups = other.length ? [...CONFIG_GROUPS, { title: 'Other', keys: other }] : CONFIG_GROUPS;
+
+  for (const group of groups) {
+    const keys = group.keys.filter((k) => k in DEFAULT_CONFIG);
+    if (!keys.length) {
+      continue;
+    }
+    const heading = document.createElement('div');
+    heading.className = 'group-title';
+    heading.textContent = group.title;
+    configEl.appendChild(heading);
+    for (const key of keys) {
+      const def = DEFAULT_CONFIG[key];
+      const current = key in co ? co[key] : def;
+      configEl.appendChild(configRow(key, def, current));
+    }
   }
 
   renderPause();
