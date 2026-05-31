@@ -62,6 +62,7 @@ setConfig({ basePeriodMin: 5, dailySnapshotHour: 8 })                // change g
 showConfig()                                                         // print effective config
 resetConfig()                                                        // drop overrides, back to file defaults
 pauseWatch() / resumeWatch() / statusWatch()                         // pause / resume / inspect
+pauseProduct('693209') / pauseProduct('693209', false)               // pause / resume just one product
 ```
 
 Both paths write the same overrides in `chrome.storage.local`, which win over file defaults until reset. To watch a product, find its numeric id in the TCGplayer product URL (`tcgplayer.com/product/<id>/...`) and add it in the UI or via `setProduct` (or to `DEFAULT_PRODUCTS`).

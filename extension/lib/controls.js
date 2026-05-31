@@ -7,6 +7,7 @@
 //   showConfig()                                              print effective config
 //   resetConfig()                                             drop overrides, back to file defaults
 //   pauseWatch() / resumeWatch() / statusWatch()              pause / resume / inspect
+//   pauseProduct('693209') / pauseProduct('693209', false)    pause / resume just one product
 
 import { get, set, applyOverrides, getConfig, getProducts } from './storage.js';
 import { ensureAlarm } from './scheduler.js';
@@ -62,6 +63,16 @@ export function registerControls() {
   globalThis.pauseWatch = async () => {
     await set({ [KEY.PAUSED]: true });
     console.log(PREFIX, 'PAUSED — no reloads or alerts until resumeWatch().');
+  };
+
+  // Pause/resume a SINGLE product (mirrors the per-tile toggle in the options
+  // UI). on=false resumes. Independent of the global pause and of the product
+  // override, so it survives setProduct edits.
+  globalThis.pauseProduct = async (id, on = true) => {
+    await set({ [KEY.productPaused(id)]: on });
+    console.log(PREFIX, on
+      ? `product ${id} PAUSED — no reloads or alerts for it until pauseProduct('${id}', false).`
+      : `product ${id} resumed.`);
   };
 
   globalThis.resumeWatch = async () => {
