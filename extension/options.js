@@ -46,6 +46,13 @@ function effectiveProducts(po) {
 
 const cardId = (card) => card.querySelector('.pid').value.trim();
 
+// Friendly label for toasts: the product's name, falling back to its id, then a
+// generic phrase for a brand-new unsaved card.
+const cardLabel = (card) => {
+  const name = card.querySelector('[data-field="name"]').value.trim();
+  return name || cardId(card) || 'this product';
+};
+
 // Read one card's fields into a product object.
 function readCard(card) {
   const prod = {};
@@ -116,18 +123,18 @@ async function saveProductCard(card) {
     po[id] = prod;
   }
   await set({ [KEY.PRODUCTS_OVERRIDE]: po });
-  flash(`Saved ${id} — applies on the next poll.`);
+  flash(`Saved ${cardLabel(card)} — applies on the next poll.`);
 }
 
 async function refreshProductTabs(card) {
   const id = cardId(card);
   const tabs = await productTabs(id);
   if (!tabs.length) {
-    flash(`No open tab for ${id || 'this product'}.`, 'warn');
+    flash(`No open tab for ${cardLabel(card)}.`, 'warn');
     return;
   }
   await Promise.all(tabs.map((t) => chrome.tabs.reload(t.id)));
-  flash(`Refreshed ${tabs.length} tab${tabs.length > 1 ? 's' : ''} for ${id}.`);
+  flash(`Refreshed ${tabs.length} tab${tabs.length > 1 ? 's' : ''} for ${cardLabel(card)}.`);
 }
 
 // Open the product's TCGplayer page in a new tab. Prefer the last-known URL we
@@ -148,7 +155,7 @@ async function focusProductTab(card) {
   const id = cardId(card);
   const [tab] = await productTabs(id);
   if (!tab) {
-    flash(`No open tab for ${id || 'this product'}.`, 'warn');
+    flash(`No open tab for ${cardLabel(card)}.`, 'warn');
     return;
   }
   await chrome.tabs.update(tab.id, { active: true });
@@ -168,7 +175,7 @@ async function toggleProductPause(card) {
   }
   const now = !(await get(KEY.productPaused(id), false));
   await set({ [KEY.productPaused(id)]: now });
-  flash(now ? `Paused ${id} — no reloads or alerts.` : `Resumed ${id}.`, now ? 'warn' : 'success');
+  flash(now ? `Paused ${cardLabel(card)} — no reloads or alerts.` : `Resumed ${cardLabel(card)}.`, now ? 'warn' : 'success');
 }
 
 // Reflect the stored pause state on the button and dim the tile when paused.
@@ -185,6 +192,7 @@ async function syncPauseButton(button, card) {
 // drops its override. Brand-new unsaved cards (no id yet) only leave the DOM.
 async function removeProductCard(card) {
   const id = cardId(card);
+  const label = cardLabel(card); // capture before the card leaves the DOM
   if (id) {
     const po = await get(KEY.PRODUCTS_OVERRIDE, {});
     if (DEFAULT_PRODUCTS[id]) {
@@ -195,7 +203,7 @@ async function removeProductCard(card) {
     await set({ [KEY.PRODUCTS_OVERRIDE]: po });
   }
   card.remove();
-  flash(id ? `Removed ${id}.` : 'Removed.');
+  flash(id ? `Removed ${label}.` : 'Removed.');
 }
 
 function actionBar(card, actions, cls) {
