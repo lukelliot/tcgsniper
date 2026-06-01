@@ -44,12 +44,12 @@ function effectiveProducts(po) {
 
 // --- product cards -----------------------------------------------------------
 
-const cardId = (card) => card.querySelector('.pid').value.trim();
+const cardId = (card) => card.querySelector('.pid')?.value.trim() ?? '';
 
 // Friendly label for toasts: the product's name, falling back to its id, then a
 // generic phrase for a brand-new unsaved card.
 const cardLabel = (card) => {
-  const name = card.querySelector('[data-field="name"]').value.trim();
+  const name = card.querySelector('[data-field="name"]')?.value.trim() ?? '';
   return name || cardId(card) || 'this product';
 };
 
@@ -239,8 +239,6 @@ function productCard(id, prod) {
   const card = document.createElement('div');
   card.className = 'product';
 
-  card.appendChild(actionBar(card, PRODUCT_ACTIONS, 'top'));
-
   const fields = document.createElement('div');
   fields.className = 'fields';
 
@@ -280,6 +278,9 @@ function productCard(id, prod) {
   }
 
   card.appendChild(fields);
+  // Bars are built AFTER the fields are attached, so action refresh hooks (e.g.
+  // the pause toggle's label) can read the id/name inputs. Top bar goes first.
+  card.prepend(actionBar(card, PRODUCT_ACTIONS, 'top'));
   card.appendChild(actionBar(card, PRODUCT_DESTRUCTIVE, 'bottom'));
   return card;
 }
