@@ -7,7 +7,7 @@ import { KEY, STATE, REGEX, MS } from './constants.js';
 import { notify } from './notify.js';
 import { recordHistory, buildContext, checkTrend } from './trend.js';
 import { checkScrapeHealth } from './health.js';
-import { lowsDescending, deepestTier, medianOfTotals, quantityVelocity } from './pricing.js';
+import { lowsDescending, deepestTier, highsAscending, highestTier, medianOfTotals, quantityVelocity } from './pricing.js';
 import { ensureAlarm } from './scheduler.js';
 import { log, warn } from './log.js';
 
@@ -194,28 +194,34 @@ async function checkSteal(id, cfg, pool, lowest, price, hist, ctx, url) {
   return false;
 }
 
-// Thresholds: a LADDER of low markers (alert as the price steps DOWN through
-// each new, deeper marker) plus a single high (spike). Multiple low markers
-// hedge against setting one buy target too low and missing the slide.
+// Thresholds: two symmetric LADDERS — low markers (alert as the price steps
+// DOWN through each new, deeper marker) and high markers (alert as it steps UP
+// through each new, higher spike). Multiple markers on each side hedge against
+// setting one target wrong and missing the move.
 async function checkThresholdLadder(id, cfg, lowest, price, stealFired, ctx, url) {
   const c = getConfig();
   const lows = lowsDescending(cfg); // high -> low; index 0 is the shallowest marker
-  const lowTier = deepestTier(price, lows); // deepest marker crossed, or -1
-  const highHit = cfg.highPrice != null && price >= cfg.highPrice;
+  const highs = highsAscending(cfg); // low -> high; index 0 is the shallowest marker
+  const lowTier = deepestTier(price, lows); // deepest low marker crossed, or -1
+  const highTier = highestTier(price, highs); // highest spike marker crossed, or -1
 
   const lastLowTier = await get(KEY.lowTier(id), -1);
-  const lastHigh = await get(KEY.highState(id), false);
+  const lastHighTier = await get(KEY.highTier(id), -1);
   const lastAlertT = await get(KEY.lastAlertT(id), 0);
   let gapH = await get(KEY.reAlertGap(id), c.reAlertMinHours);
 
   const cooldownPassed = c.reAlertMaxHours > 0 && Date.now() - lastAlertT >= gapH * MS.HOUR;
-  const levelChanged = (highHit !== lastHigh) || (lowTier !== lastLowTier);
+  const levelChanged = (highTier !== lastHighTier) || (lowTier !== lastLowTier);
   let fired = false;
 
-  if (highHit) {
-    // spike: alert on entry, then re-ping on the backoff while still high
-    if (highHit !== lastHigh || cooldownPassed) {
-      notify(`${cfg.name}: SPIKE $${price.toFixed(2)}`, `$${price.toFixed(2)} from ${lowest.seller}.${ctx}`, url);
+  if (highTier >= 0) {
+    if (highTier > lastHighTier) {
+      // stepped up to a NEW, higher spike marker
+      notify(`${cfg.name}: SPIKE $${price.toFixed(2)} (marker ${highTier + 1}/${highs.length}, ≥$${highs[highTier]})`, `$${price.toFixed(2)} from ${lowest.seller}.${ctx}`, url);
+      fired = true;
+    } else if (highTier === lastHighTier && cooldownPassed) {
+      // still sitting at the highest marker — re-ping on the backoff
+      notify(`${cfg.name}: still ≥$${highs[highTier]} — $${price.toFixed(2)}`, `$${price.toFixed(2)} from ${lowest.seller}.${ctx}`, url);
       fired = true;
     }
   } else if (lowTier >= 0 && !stealFired) {
@@ -233,7 +239,7 @@ async function checkThresholdLadder(id, cfg, lowest, price, stealFired, ctx, url
   if (fired) {
     await set({ [KEY.lastAlertT(id)]: Date.now() });
   }
-  // reset the re-alert gap when the level changed (new marker, or in/out of high);
+  // reset the re-alert gap when the level changed (a new marker on either side);
   // grow it when re-pinging the same level; leave it otherwise.
   if (levelChanged) {
     gapH = c.reAlertMinHours;
@@ -243,7 +249,7 @@ async function checkThresholdLadder(id, cfg, lowest, price, stealFired, ctx, url
   await set({
     [KEY.reAlertGap(id)]: gapH,
     [KEY.lowTier(id)]: lowTier,
-    [KEY.highState(id)]: highHit,
+    [KEY.highTier(id)]: highTier,
   });
 }
 

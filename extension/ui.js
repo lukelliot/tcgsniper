@@ -17,7 +17,7 @@ const NULLABLE = new Set(['dailySnapshotHour']);
 const PRODUCT_FIELDS = [
   { key: 'name', label: 'Name', type: 'text' },
   { key: 'lowPrices', label: 'Low markers (ladder)', type: 'list', hint: 'Comma-separated, high → low. Alerts as the price steps down through each.' },
-  { key: 'highPrice', label: 'High (spike) price', type: 'number' },
+  { key: 'highPrices', label: 'High markers (spike)', type: 'list', hint: 'Comma-separated, low → high. Alerts as the price steps up through each.' },
   { key: 'floorPrice', label: 'Junk floor', type: 'number', hint: 'Listings below this are ignored.' },
 ];
 

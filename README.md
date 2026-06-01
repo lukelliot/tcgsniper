@@ -25,7 +25,7 @@ chrome.alarms ──tick──▶ background.js (service worker)
 
 ## Alerts
 
-- **Threshold ladder** — a list of descending "low" price markers plus one "high" (spike) marker. You get a `DROP` alert as the cheapest listing steps down through each new, deeper marker, and a `SPIKE` alert when it crosses the high. While the price sits at a marker, it re-pings on a backoff that doubles each time (clamped between `reAlertMinHours` and `reAlertMaxHours`).
+- **Threshold ladder** — two symmetric lists of markers: descending "low" markers and ascending "high" (spike) markers. You get a `DROP` alert as the cheapest listing steps down through each new, deeper low marker, and a `SPIKE` alert as it steps up through each new, higher marker. While the price sits at a marker, it re-pings on a backoff that doubles each time (clamped between `reAlertMinHours` and `reAlertMaxHours`).
 - **Steal** — fires when the cheapest listing is `stealFactor` (default 65%) or less of the listing median, given at least `stealMinListings` listings. *Velocity-aware:* when stock is draining fast (quantity falls `stealVelocityThreshold` over `stealVelocityWindowHours`), the factor loosens by `stealVelocityBoost` so a disappearing deal still trips.
 - **Trend** — anchored on the smoothed Market Price: a `still falling` ping each time it drops `trendDropPct` from the anchor, and a `decline stalled` ping once it holds flat for `stallHours` after a decline (a possible buy window). Alerts also report change over `trendWindowsDays` (settable globally or per product).
 - **Daily snapshot** — one digest notification per day at/after `dailySnapshotHour`.
@@ -56,7 +56,7 @@ File defaults live in [`extension/lib/config.js`](extension/lib/config.js) (`DEF
 **Service worker console.** `chrome://extensions` → this extension → "service worker":
 
 ```js
-setProduct('693209', { lowPrices: [390, 360, 340], highPrice: 410 }) // change a product's markers
+setProduct('693209', { lowPrices: [390, 360, 340], highPrices: [410, 450] }) // change a product's markers
 setProduct('693209', null)                                           // stop watching that product
 setConfig({ basePeriodMin: 5, dailySnapshotHour: 8 })                // change global settings
 showConfig()                                                         // print effective config

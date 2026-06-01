@@ -1,7 +1,7 @@
 // controls.js — functions callable from the SERVICE WORKER console
 // (chrome://extensions -> this extension -> "service worker"). Config edits
 // persist in storage (no reload):
-//   setProduct('693209', { lowPrices: [390,360,340], highPrice: 410 })   change a product's markers
+//   setProduct('693209', { lowPrices: [390,360,340], highPrices: [410] }) change a product's markers
 //   setProduct('693209', null)                                stop watching that product (and its timer)
 //   setConfig({ basePeriodMin: 5, dailySnapshotHour: 8 })     change global settings
 //   showConfig()                                              print effective config
