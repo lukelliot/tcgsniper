@@ -49,7 +49,7 @@ export async function handleTick(a) {
   });
 
   if (uhoh.length) {
-    await handleBlocked(uhoh);
+    await handleBlocked(uhoh, watched);
     return;
   }
 
@@ -73,9 +73,15 @@ export async function handleTick(a) {
 }
 
 // TCGplayer redirected us to /uhoh. Slow down (hammering a block makes it
-// worse) and recover by REUSING the blocked tab; close any extra /uhoh tabs so
-// they can't accumulate overnight.
-async function handleBlocked(uhoh) {
+// worse) and recover by REUSING the blocked tab(s); close any extra /uhoh tabs
+// so they can't accumulate overnight.
+//
+// A /uhoh URL carries no product id, so we can't read which product a blocked
+// tab belonged to. Instead we recover each watched product that currently lacks
+// a live (non-/uhoh) tab back to ITS OWN saved URL, pairing those URLs with the
+// available /uhoh tabs. (The old code reused a single URL — the first product's
+// — for every tab, collapsing every watched tab onto that one product.)
+async function handleBlocked(uhoh, watched) {
   const c = getConfig();
   const products = getProducts();
 
@@ -85,28 +91,36 @@ async function handleBlocked(uhoh) {
   await set({ [KEY.FLAGGED_BACKOFF]: fb, [KEY.FLAGGED_SINCE]: since });
   ensureAlarm(fb);
 
-  let recoverUrl = null;
+  // Products that still have a healthy product tab don't need recovery.
+  const liveIds = new Set(watched.map((t) => (t.url.match(REGEX.PRODUCT_ID) || [])[1]));
+
+  // One saved URL per watched product missing a live tab — the pages to recover.
+  const recoverUrls = [];
   for (const id of Object.keys(products)) {
+    if (liveIds.has(id) || await get(KEY.productPaused(id), false)) {
+      continue;
+    }
     const u = await get(KEY.url(id), null);
     if (u) {
-      recoverUrl = u;
-      break;
+      recoverUrls.push(u);
     }
   }
 
-  for (const t of uhoh.slice(1)) {
+  // Point each blocked tab at its own product; close any surplus /uhoh tabs.
+  let recovered = 0;
+  for (let i = 0; i < uhoh.length; i++) {
     try {
-      await chrome.tabs.remove(t.id);
-    } catch (e) { /* tab already gone */ }
-  }
-  if (recoverUrl) {
-    try {
-      await chrome.tabs.update(uhoh[0].id, { url: recoverUrl });
+      if (i < recoverUrls.length) {
+        await chrome.tabs.update(uhoh[i].id, { url: recoverUrls[i] });
+        recovered++;
+      } else {
+        await chrome.tabs.remove(uhoh[i].id);
+      }
     } catch (e) { /* tab already gone */ }
   }
 
   const downMin = ((Date.now() - since) / MS.MIN).toFixed(0);
-  warn(`FLAGGED (/uhoh) — blocked ~${downMin}m so far. Backing off to ${fb}m and ${recoverUrl ? 'retrying the page now' : 'waiting (no saved product URL to retry)'}.`);
+  warn(`FLAGGED (/uhoh) — blocked ~${downMin}m so far. Backing off to ${fb}m and ${recovered ? `retrying ${recovered} page(s) now` : 'waiting (no saved product URL to retry)'}.`);
 }
 
 // Reload at most one tab per product id — duplicate tabs (e.g. leftovers from an
