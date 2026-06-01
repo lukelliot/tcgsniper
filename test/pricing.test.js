@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import {
   lowsDescending,
   deepestTier,
+  highsAscending,
+  highestTier,
   medianOfTotals,
   quantityVelocity,
   windowDelta,
@@ -29,6 +31,21 @@ test('deepestTier returns the deepest crossed marker (or -1)', () => {
   assert.equal(deepestTier(350, lows), 1);  // crosses 390,360 but not 340
   assert.equal(deepestTier(310, lows), 3);  // crosses all
   assert.equal(deepestTier(100, []), -1);   // no markers
+});
+
+test('highsAscending sorts markers low -> high and normalizes shapes', () => {
+  assert.deepEqual(highsAscending({ highPrices: [450, 410, 500] }), [410, 450, 500]);
+  assert.deepEqual(highsAscending({ highPrice: 410 }), [410]);
+  assert.deepEqual(highsAscending({}), []);
+});
+
+test('highestTier returns the highest crossed spike marker (or -1)', () => {
+  const highs = [410, 450, 500];
+  assert.equal(highestTier(400, highs), -1); // below all markers
+  assert.equal(highestTier(410, highs), 0);  // exactly the shallowest
+  assert.equal(highestTier(460, highs), 1);  // crosses 410,450 but not 500
+  assert.equal(highestTier(520, highs), 2);  // crosses all
+  assert.equal(highestTier(999, []), -1);    // no markers
 });
 
 test('medianOfTotals matches the middle-of-sorted definition', () => {

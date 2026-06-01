@@ -5,7 +5,7 @@
 import { get, set, getConfig } from './storage.js';
 import { KEY, MS, HISTORY } from './constants.js';
 import { notify } from './notify.js';
-import { windowDelta, fmtWindow, trendWindows } from './pricing.js';
+import { windowDelta, fmtWindow, trendWindows, lowsDescending, highsAscending } from './pricing.js';
 
 // Append one Market Price sample (downsampled), prune to the longest window, return history.
 // `cfg` is the per-product config, so a product can override trendWindowsDays.
@@ -35,9 +35,10 @@ export function buildContext(market, hist, cfg) {
     const age = market.stale && market.t ? ` (${Math.round((Date.now() - market.t) / MS.MIN)}m old)` : '';
     const tgt = [];
     if (cfg) {
-      const lows = (Array.isArray(cfg.lowPrices) ? cfg.lowPrices : (cfg.lowPrice != null ? [cfg.lowPrice] : [])).slice().sort((a, b) => b - a);
+      const lows = lowsDescending(cfg);
+      const highs = highsAscending(cfg);
       const lowStr = lows.length ? lows.join('/') : null;
-      const highStr = cfg.highPrice != null ? String(cfg.highPrice) : null;
+      const highStr = highs.length ? highs.join('/') : null;
 
       if (lowStr && highStr) {
         tgt.push(`${lowStr} <=> ${highStr}`);

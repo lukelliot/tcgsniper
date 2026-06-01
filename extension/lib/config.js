@@ -7,7 +7,7 @@ export const DEFAULT_PRODUCTS = {
   "693209": {
     name: "Goblin Storm",
     lowPrices: [390, 360, 340, 320], // ladder: alerts as the price steps down through each
-    highPrice: 410,
+    highPrices: [410], // ladder: alerts as the price steps up through each spike marker
     floorPrice: 140,
   },
 };

@@ -25,6 +25,27 @@ export function deepestTier(price, lowsDesc) {
   return tier;
 }
 
+// A product's high (spike) markers, low -> high (index 0 is the shallowest).
+// Accepts either highPrices: number[] or a single highPrice.
+export function highsAscending(cfg) {
+  const highs = Array.isArray(cfg.highPrices)
+    ? [...cfg.highPrices]
+    : (cfg.highPrice != null ? [cfg.highPrice] : []);
+  return highs.sort((a, b) => a - b);
+}
+
+// Index of the highest spike marker the price has crossed (price >= marker), or
+// -1 if none. `highsAsc` must be sorted low -> high.
+export function highestTier(price, highsAsc) {
+  let tier = -1;
+  for (let i = 0; i < highsAsc.length; i++) {
+    if (price >= highsAsc[i]) {
+      tier = i;
+    }
+  }
+  return tier;
+}
+
 // Median of listing totals — the same middle-of-sorted definition v1.0 used.
 export function medianOfTotals(totals) {
   const sorted = [...totals].sort((a, b) => a - b);
