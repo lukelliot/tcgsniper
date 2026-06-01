@@ -1,4 +1,4 @@
-// options.js — the settings UI. It reads and writes the SAME storage overrides
+// ui.js — the settings UI. It reads and writes the SAME storage overrides
 // (configOverride / productsOverride / paused) that the service-worker console
 // controls use, so the two stay in sync. The form is generated from the file
 // defaults, so adding a knob in config.js automatically surfaces here. Changes
@@ -518,6 +518,12 @@ document.getElementById('addProduct').onclick = () => {
 };
 document.getElementById('save').onclick = save;
 document.getElementById('reset').onclick = reset;
+// Chrome has no API to open the service-worker DevTools console directly, so we
+// open the extension's details page where the "service worker" inspect link is.
+// (A plain chrome:// anchor is blocked; chrome.tabs.create is allowed.)
+document.getElementById('swLogs').onclick = () => {
+  chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+};
 document.getElementById('pauseBtn').onclick = async () => {
   paused = !paused;
   await set({ [KEY.PAUSED]: paused });
