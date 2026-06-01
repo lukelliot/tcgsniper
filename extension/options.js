@@ -518,6 +518,12 @@ document.getElementById('addProduct').onclick = () => {
 };
 document.getElementById('save').onclick = save;
 document.getElementById('reset').onclick = reset;
+// Chrome has no API to open the service-worker DevTools console directly, so we
+// open the extension's details page where the "service worker" inspect link is.
+// (A plain chrome:// anchor is blocked; chrome.tabs.create is allowed.)
+document.getElementById('swLogs').onclick = () => {
+  chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+};
 document.getElementById('pauseBtn').onclick = async () => {
   paused = !paused;
   await set({ [KEY.PAUSED]: paused });

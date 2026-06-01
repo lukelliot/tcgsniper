@@ -34,6 +34,7 @@
     button.danger { color: #dc2626; }
     .bar { display: flex; gap: 10px; align-items: center; margin: 24px 0 8px; flex-wrap: wrap; }
     #pauseState { font-weight: 600; }
+    #swLogs { margin-left: auto; }
     button:active { transform: translateY(1px); }
     #toast {
       position: fixed; bottom: 24px; left: 50%;
@@ -54,6 +55,7 @@
   <div class="bar">
     <button id="pauseBtn" type="button"></button>
     <span id="pauseState"></span>
+    <button id="swLogs" type="button" title="Opens the extension's details page — click the “service worker” link there to view the console logs.">Service worker logs ↗</button>
   </div>
 
   <h2>Products</h2>
