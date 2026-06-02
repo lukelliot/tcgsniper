@@ -1,21 +1,28 @@
 // notify.js — fan one alert out to the desktop and/or ntfy.sh, and echo it to
 // the console. Honors useDesktop / useNtfy / ntfyTopic from the live config.
 
-import { getConfig } from './storage.js';
-import { URLS, NTFY_TAGS, NOTIFICATION_PRIORITY } from './constants.js';
+import { getConfig, get, set, remove } from './storage.js';
+import { KEY, URLS, NTFY_TAGS, NOTIFICATION_PRIORITY } from './constants.js';
 import { log, warn } from './log.js';
 
 export function notify(title, message, url) {
   const cfg = getConfig();
 
   if (cfg.useDesktop) {
-    chrome.notifications.create({
+    // Give the notification an explicit id and remember its click target, so
+    // onNotificationClicked() can open the product page. The MV3 worker may be
+    // torn down between create and click, so the url lives in storage, not memory.
+    const nid = `notif_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    chrome.notifications.create(nid, {
       type: 'basic',
       iconUrl: 'icon.png',
       title,
       message,
       priority: NOTIFICATION_PRIORITY,
     });
+    if (url) {
+      set({ [KEY.notifClick(nid)]: url });
+    }
   }
 
   if (cfg.useNtfy && cfg.ntfyTopic) {
@@ -37,4 +44,16 @@ export function notify(title, message, url) {
   }
 
   log(title, '—', message.replace(/\n/g, ' | '));
+}
+
+// Clicking a desktop notification opens its product page (in a focused tab) and
+// dismisses the notification. No stored url (e.g. an older notification) just
+// clears it. Wired to chrome.notifications.onClicked in background.js.
+export async function onNotificationClicked(nid) {
+  const url = await get(KEY.notifClick(nid), null);
+  if (url) {
+    chrome.tabs.create({ url, active: true });
+    await remove(KEY.notifClick(nid));
+  }
+  chrome.notifications.clear(nid);
 }
