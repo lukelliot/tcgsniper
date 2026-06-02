@@ -14,6 +14,7 @@
 import { applyOverrides, getConfig } from './lib/storage.js';
 import { ensureAlarm, keepAwake, handleTick } from './lib/scheduler.js';
 import { evaluate } from './lib/evaluate.js';
+import { onNotificationClicked } from './lib/notify.js';
 import { registerControls } from './lib/controls.js';
 
 registerControls();
@@ -40,4 +41,9 @@ chrome.runtime.onMessage.addListener((msg) => {
 // Clicking the toolbar icon opens the settings page.
 chrome.action.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
+});
+
+// Clicking a desktop notification opens the product page it was about.
+chrome.notifications.onClicked.addListener((nid) => {
+  onNotificationClicked(nid).catch(console.error);
 });

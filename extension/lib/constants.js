@@ -70,4 +70,8 @@ export const KEY = {
   snapDay: (id) => `snapDay_${id}`,
   unhealthy: (id) => `unhealthy_${id}`,
   healthAlerted: (id) => `healthAlerted_${id}`,
+
+  // Maps a desktop-notification id to the URL to open when it's clicked. Keyed
+  // by the notification id (not a product id) since one alert -> one click target.
+  notifClick: (nid) => `notifClick_${nid}`,
 };

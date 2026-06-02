@@ -9,6 +9,7 @@ import { KEY } from './constants.js';
 // Async wrappers around chrome.storage.local.
 export const get = (k, d) => new Promise((r) => chrome.storage.local.get([k], (o) => r(k in o ? o[k] : d)));
 export const set = (o) => new Promise((r) => chrome.storage.local.set(o, r));
+export const remove = (k) => new Promise((r) => chrome.storage.local.remove(k, r));
 
 // Effective settings — defaults overlaid with stored overrides (rehydrated each tick).
 let CONFIG = { ...DEFAULT_CONFIG };
