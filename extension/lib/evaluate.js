@@ -61,7 +61,7 @@ export async function evaluate({ url, listings, market, diag }) {
   const lowest = pool.reduce((a, b) => (b.total < a.total ? b : a));
   const price = lowest.total;
 
-  const stealFired = await checkSteal(id, cfg, pool, lowest, price, hist, ctx, url);
+  const stealFired = await checkSteal(id, cfg, pool, lowest, price, hist, mkt, ctx, url);
   await checkThresholdLadder(id, cfg, lowest, price, stealFired, ctx, url);
 
   const lead = `${cfg.name}: $${price.toFixed(2)} from ${lowest.seller}`;
@@ -164,27 +164,33 @@ async function checkFloor(id, cfg, listings, ctx, url) {
   return null;
 }
 
-// Lowest listing far enough under the listing median to look like a steal.
+// Lowest listing far enough under the Market Price to look like a steal.
 // Velocity-aware: when stock is draining fast the steal factor is loosened so a
 // disappearing deal still trips. Returns whether the price is in steal range
 // (which suppresses the DROP alert).
-async function checkSteal(id, cfg, pool, lowest, price, hist, ctx, url) {
+//
+// Baseline is the Market Price; if it hasn't rendered yet (carry-forward null)
+// we fall back to the listing median for this poll so the steal still trips.
+async function checkSteal(id, cfg, pool, lowest, price, hist, mkt, ctx, url) {
   const c = getConfig();
   if (pool.length < c.stealMinListings) {
     return false;
   }
 
-  const median = medianOfTotals(pool.map((l) => l.total));
+  const baseline = mkt.marketPrice != null ? mkt.marketPrice : medianOfTotals(pool.map((l) => l.total));
+  if (baseline == null) {
+    return false;
+  }
 
   const vel = quantityVelocity(hist, c.stealVelocityWindowHours);
   const sellingFast = vel >= c.stealVelocityThreshold;
   const factor = sellingFast ? Math.min(0.95, c.stealFactor + c.stealVelocityBoost) : c.stealFactor;
 
-  if (price <= median * factor) {
+  if (price <= baseline * factor) {
     if (await get(KEY.steal(id), 0) !== price) {
-      const gapPct = ((1 - price / median) * 100).toFixed(0);
+      const gapPct = ((1 - price / baseline) * 100).toFixed(0);
       const velNote = sellingFast ? ` Selling fast: stock down ${(vel * 100).toFixed(0)}% in ${c.stealVelocityWindowHours}h.` : '';
-      notify(`${cfg.name}: POSSIBLE STEAL $${price.toFixed(2)}`, `${gapPct}% under the $${median.toFixed(2)} listing median, from ${lowest.seller}.${velNote}${ctx}`, url);
+      notify(`${cfg.name}: -${gapPct}% STEAL`, `$${price.toFixed(2)} from ${lowest.seller}.${velNote}${ctx}`, url);
       await set({ [KEY.steal(id)]: price });
     }
     return true;
