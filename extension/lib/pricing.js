@@ -4,13 +4,18 @@
 
 import { MS } from './constants.js';
 
+// Markers must be real, positive prices. Filtering here neutralizes junk that
+// reached storage another way (e.g. a [0] saved by an older UI build) so it can
+// never become a phantom tier — a 0 high marker that every price "crosses".
+const validMarkers = (xs) => xs.filter((n) => Number.isFinite(n) && n > 0);
+
 // A product's low markers, high -> low (index 0 is the shallowest marker).
 // Accepts either lowPrices: number[] or a single lowPrice.
 export function lowsDescending(cfg) {
   const lows = Array.isArray(cfg.lowPrices)
     ? [...cfg.lowPrices]
     : (cfg.lowPrice != null ? [cfg.lowPrice] : []);
-  return lows.sort((a, b) => b - a);
+  return validMarkers(lows).sort((a, b) => b - a);
 }
 
 // Index of the deepest low marker the price has crossed (price <= marker), or
@@ -31,7 +36,7 @@ export function highsAscending(cfg) {
   const highs = Array.isArray(cfg.highPrices)
     ? [...cfg.highPrices]
     : (cfg.highPrice != null ? [cfg.highPrice] : []);
-  return highs.sort((a, b) => a - b);
+  return validMarkers(highs).sort((a, b) => a - b);
 }
 
 // Index of the highest spike marker the price has crossed (price >= marker), or
