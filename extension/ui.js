@@ -22,7 +22,11 @@ const PRODUCT_FIELDS = [
 ];
 
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const parseList = (s) => String(s).split(',').map((x) => Number(x.trim())).filter((n) => Number.isFinite(n));
+// Drop empty tokens BEFORE Number() — otherwise a blank field ("") splits to
+// [""], and Number("") is 0 (finite), silently saving [0]. A [0] high marker
+// would make every price "cross" it (phantom SPIKE ≥$0.00); a [0] low marker
+// would never cross. Blank in → [] out.
+const parseList = (s) => String(s).split(',').map((x) => x.trim()).filter((x) => x !== '').map(Number).filter((n) => Number.isFinite(n));
 
 // --- effective state (defaults overlaid with stored overrides) ---------------
 

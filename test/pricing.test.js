@@ -23,6 +23,8 @@ test('lowsDescending sorts markers high -> low and normalizes shapes', () => {
   assert.deepEqual(lowsDescending({ lowPrices: [320, 390, 340] }), [390, 340, 320]);
   assert.deepEqual(lowsDescending({ lowPrice: 100 }), [100]);
   assert.deepEqual(lowsDescending({}), []);
+  // junk markers (0, negatives, NaN) are dropped, not treated as a tier
+  assert.deepEqual(lowsDescending({ lowPrices: [0, 340, -5, NaN] }), [340]);
 });
 
 test('deepestTier returns the deepest crossed marker (or -1)', () => {
@@ -38,6 +40,8 @@ test('highsAscending sorts markers low -> high and normalizes shapes', () => {
   assert.deepEqual(highsAscending({ highPrices: [450, 410, 500] }), [410, 450, 500]);
   assert.deepEqual(highsAscending({ highPrice: 410 }), [410]);
   assert.deepEqual(highsAscending({}), []);
+  // a blank field saved as [0] must NOT become a phantom spike marker
+  assert.deepEqual(highsAscending({ highPrices: [0] }), []);
 });
 
 test('highestTier returns the highest crossed spike marker (or -1)', () => {
